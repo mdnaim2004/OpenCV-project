@@ -381,18 +381,17 @@ def main():
         save_config(cfg)
         logger.info("Config saved.")
 
-        # ── Flush any collected data ───────────────────────────────
+        # ── Flush any collected data ──────────────────────────────
         if collector.active and collector._rows:
             collector.flush()
 
-        # ── Cleanup ───────────────────────────────────────────────
+        # ── Cleanup ──────────────────────────────────────────────
         cap.release()
         cv2.destroyAllWindows()
         hands.close()
         import pygame
         pygame.mixer.quit()
         logger.info("Goodbye!")
-
 
 if __name__ == "__main__":
     main()
