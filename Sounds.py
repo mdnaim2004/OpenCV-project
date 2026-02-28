@@ -166,6 +166,7 @@ def main():
     fps         = 0.0
     prev_t      = time.time()
     last_result = None   # last GestureResult
+    
 
     # Manual fallback volume smoothing
     manual_smooth = player.volume
@@ -191,7 +192,7 @@ def main():
 
             img = cv2.flip(img, 1)
             h, w = img.shape[:2]
-            
+
 
             # ── Process gesture every N frames ────────────────────
             frame_idx += 1
