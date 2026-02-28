@@ -191,6 +191,7 @@ def main():
 
             img = cv2.flip(img, 1)
             h, w = img.shape[:2]
+            
 
             # ── Process gesture every N frames ────────────────────
             frame_idx += 1
@@ -204,6 +205,7 @@ def main():
                         results.multi_handedness,
                         w, h
                     )
+
 
                     # ── Apply volume (left hand) ───────────────────
                     if last_result.left_volume >= 0:
@@ -270,7 +272,7 @@ def main():
             prev_t = now
             if dt > 0:
                 fps = 0.9 * fps + 0.1 / dt
-                
+
 
             # ── Player update (track-end events) ──────────────────
             player.update()
