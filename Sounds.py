@@ -263,19 +263,22 @@ def main():
                     player.set_volume(manual_smooth)
                     last_result = None
 
+
             # ── FPS ───────────────────────────────────────────────
             now = time.time()
             dt  = now - prev_t
             prev_t = now
             if dt > 0:
                 fps = 0.9 * fps + 0.1 / dt
+                
 
             # ── Player update (track-end events) ──────────────────
             player.update()
             elapsed, _ = player.get_progress()
             info        = player.get_current_info()
 
-            # ── Build render state ────────────────────────────────
+
+            # ── Build render state ────────────────────────────────___
             state = {
                 "volume":          player.volume,
                 "is_muted":        player.is_muted,
