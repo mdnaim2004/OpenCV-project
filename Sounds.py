@@ -304,7 +304,7 @@ def main():
             renderer.draw(img, state)
             cv2.imshow(WINDOW, img)
 
-            # ── Keyboard ──────────────────────────────────────────
+            # ── Keyboard ──────────────────────────────────────────__
             key = cv2.waitKey(1) & 0xFF
             if   key == ord('q'):
                 break
@@ -335,7 +335,7 @@ def main():
             elif key == ord('l'):
                 renderer.show_landmarks = not renderer.show_landmarks
             elif key == ord('c'):
-                # Calibrate using current pinch distance
+                # Calibrate using current pinch distance 
                 if last_result and last_result.left_dist > 0:
                     detector.calibrate(last_result.left_dist)
                     renderer.notify(f"Calibrated: {detector.min_dist}–{detector.max_dist}")
