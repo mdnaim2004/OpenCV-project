@@ -38,14 +38,14 @@ import numpy as np
 @dataclass(frozen=True)
 class Settings:
     camera_index: int = 0
-    width: int = 960
-    height: int = 540
+    width: int = 640
+    height: int = 360
     fps: int = 60
     draw_smoothing: int = 3
     min_detection: float = 0.6
     min_tracking: float = 0.6
     model_complexity: int = 0
-    process_scale: float = 0.5
+    process_scale: float = 0.4
     fast_move_threshold: int = 45
     clear_hold_seconds: float = 0.55
     undo_limit: int = 12
@@ -101,14 +101,14 @@ WINDOW_NAME = "Air Writer"
 def parse_args() -> Settings:
     parser = argparse.ArgumentParser(description="Draw in the air with OpenCV and MediaPipe.")
     parser.add_argument("--camera", type=int, default=0, help="Camera index to open.")
-    parser.add_argument("--width", type=int, default=960, help="Requested camera width.")
-    parser.add_argument("--height", type=int, default=540, help="Requested camera height.")
+    parser.add_argument("--width", type=int, default=640, help="Requested camera width.")
+    parser.add_argument("--height", type=int, default=360, help="Requested camera height.")
     parser.add_argument("--fps", type=int, default=60, help="Requested camera FPS.")
     parser.add_argument("--smoothing", type=int, default=3, help="Number of recent points used for slow-motion smoothing.")
     parser.add_argument("--min-detection", type=float, default=0.6, help="MediaPipe detection confidence.")
     parser.add_argument("--min-tracking", type=float, default=0.6, help="MediaPipe tracking confidence.")
     parser.add_argument("--model-complexity", type=int, choices=(0, 1), default=0, help="MediaPipe model complexity. 0 is faster, 1 is more accurate.")
-    parser.add_argument("--process-scale", type=float, default=0.5, help="Hand-tracking frame scale. Lower is faster, higher is more accurate.")
+    parser.add_argument("--process-scale", type=float, default=0.4, help="Hand-tracking frame scale. Lower is faster, higher is more accurate.")
     parser.add_argument("--clear-hold", type=float, default=0.55, help="Seconds an open palm must be held before clearing.")
     parser.add_argument("--output-dir", type=Path, default=Path("captures"), help="Folder for saved PNG files.")
     parser.add_argument("--windowed", action="store_true", help="Start in a normal resizable window instead of fullscreen.")
@@ -122,7 +122,7 @@ def parse_args() -> Settings:
         min_detection=args.min_detection,
         min_tracking=args.min_tracking,
         model_complexity=args.model_complexity,
-        process_scale=float(np.clip(args.process_scale, 0.35, 1.0)),
+        process_scale=float(np.clip(args.process_scale, 0.25, 1.0)),
         clear_hold_seconds=max(0.2, args.clear_hold),
         output_dir=args.output_dir,
         fullscreen=not args.windowed,
@@ -134,10 +134,10 @@ def open_camera(settings: Settings) -> cv2.VideoCapture:
     if not cap.isOpened():
         raise RuntimeError(f"Could not open camera index {settings.camera_index}.")
 
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, settings.width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, settings.height)
     cap.set(cv2.CAP_PROP_FPS, settings.fps)
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     return cap
 
@@ -176,7 +176,7 @@ def prepare_tracking_frame(frame: np.ndarray, process_scale: float) -> np.ndarra
     else:
         h, w = frame.shape[:2]
         size = (max(1, int(w * process_scale)), max(1, int(h * process_scale)))
-        tracking_frame = cv2.resize(frame, size, interpolation=cv2.INTER_AREA)
+        tracking_frame = cv2.resize(frame, size, interpolation=cv2.INTER_LINEAR)
 
     rgb = cv2.cvtColor(tracking_frame, cv2.COLOR_BGR2RGB)
     rgb.flags.writeable = False
@@ -304,7 +304,7 @@ def draw_stroke_segment(
     brush_size: int,
 ) -> None:
     distance = int(np.hypot(end[0] - start[0], end[1] - start[1]))
-    steps = max(1, distance // max(brush_size // 2, 1))
+    steps = min(8, max(1, distance // max(brush_size, 1)))
     for step in range(1, steps + 1):
         alpha = step / steps
         x = int(start[0] + (end[0] - start[0]) * alpha)
@@ -321,7 +321,7 @@ def erase_segment(
 ) -> None:
     distance = int(np.hypot(end[0] - start[0], end[1] - start[1]))
     step_size = max(eraser_size // 2, 1)
-    steps = max(1, distance // step_size)
+    steps = min(6, max(1, distance // step_size))
     for step in range(steps + 1):
         alpha = step / steps
         x = int(start[0] + (end[0] - start[0]) * alpha)
