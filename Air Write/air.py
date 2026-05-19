@@ -40,12 +40,12 @@ class Settings:
     camera_index: int = 0
     width: int = 960
     height: int = 540
-    fps: int = 24
+    fps: int = 60
     draw_smoothing: int = 3
     min_detection: float = 0.6
     min_tracking: float = 0.6
     model_complexity: int = 0
-    process_scale: float = 0.65
+    process_scale: float = 0.5
     fast_move_threshold: int = 45
     clear_hold_seconds: float = 0.55
     undo_limit: int = 12
@@ -103,12 +103,12 @@ def parse_args() -> Settings:
     parser.add_argument("--camera", type=int, default=0, help="Camera index to open.")
     parser.add_argument("--width", type=int, default=960, help="Requested camera width.")
     parser.add_argument("--height", type=int, default=540, help="Requested camera height.")
-    parser.add_argument("--fps", type=int, default=24, help="Requested camera FPS.")
+    parser.add_argument("--fps", type=int, default=60, help="Requested camera FPS.")
     parser.add_argument("--smoothing", type=int, default=3, help="Number of recent points used for slow-motion smoothing.")
     parser.add_argument("--min-detection", type=float, default=0.6, help="MediaPipe detection confidence.")
     parser.add_argument("--min-tracking", type=float, default=0.6, help="MediaPipe tracking confidence.")
     parser.add_argument("--model-complexity", type=int, choices=(0, 1), default=0, help="MediaPipe model complexity. 0 is faster, 1 is more accurate.")
-    parser.add_argument("--process-scale", type=float, default=0.65, help="Hand-tracking frame scale. Lower is faster, higher is more accurate.")
+    parser.add_argument("--process-scale", type=float, default=0.5, help="Hand-tracking frame scale. Lower is faster, higher is more accurate.")
     parser.add_argument("--clear-hold", type=float, default=0.55, help="Seconds an open palm must be held before clearing.")
     parser.add_argument("--output-dir", type=Path, default=Path("captures"), help="Folder for saved PNG files.")
     parser.add_argument("--windowed", action="store_true", help="Start in a normal resizable window instead of fullscreen.")
@@ -137,6 +137,7 @@ def open_camera(settings: Settings) -> cv2.VideoCapture:
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, settings.width)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, settings.height)
     cap.set(cv2.CAP_PROP_FPS, settings.fps)
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     return cap
 
@@ -419,6 +420,8 @@ def handle_gesture(state: AppState, settings: Settings, gesture: str, cx: int, c
 
 
 def main() -> None:
+    cv2.setUseOptimized(True)
+
     settings = parse_args()
     cap = open_camera(settings)
     actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or settings.width
@@ -430,7 +433,8 @@ def main() -> None:
         undo_stack=deque(maxlen=settings.undo_limit),
         fullscreen=settings.fullscreen,
     )
-    fps_counter: Deque[float] = deque(maxlen=30)
+    fps_counter: Deque[float] = deque(maxlen=20)
+    fps = 0
 
     print(__doc__)
     print(
@@ -494,15 +498,16 @@ def main() -> None:
 
             state.previous_gesture = gesture
 
-            fps_counter.append(time.perf_counter() - start)
-            fps = int(1.0 / (np.mean(fps_counter) + 1e-9))
-
             frame = draw_ui(frame, state, gesture, fps)
             cv2.imshow(WINDOW_NAME, frame)
 
             key = cv2.waitKey(1) & 0xFF
             if key != 255 and not handle_key(key, state, settings):
                 break
+
+            loop_seconds = time.perf_counter() - start
+            fps_counter.append(loop_seconds)
+            fps = int(round(1.0 / (np.mean(fps_counter) + 1e-9)))
     finally:
         hands.close()
         cap.release()
