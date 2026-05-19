@@ -38,14 +38,14 @@ import numpy as np
 @dataclass(frozen=True)
 class Settings:
     camera_index: int = 0
-    width: int = 640
-    height: int = 360
+    width: int = 800
+    height: int = 450
     fps: int = 60
     draw_smoothing: int = 3
     min_detection: float = 0.6
     min_tracking: float = 0.6
     model_complexity: int = 0
-    process_scale: float = 0.4
+    process_scale: float = 0.45
     fast_move_threshold: int = 45
     clear_hold_seconds: float = 0.55
     undo_limit: int = 12
@@ -101,14 +101,14 @@ WINDOW_NAME = "Air Writer"
 def parse_args() -> Settings:
     parser = argparse.ArgumentParser(description="Draw in the air with OpenCV and MediaPipe.")
     parser.add_argument("--camera", type=int, default=0, help="Camera index to open.")
-    parser.add_argument("--width", type=int, default=640, help="Requested camera width.")
-    parser.add_argument("--height", type=int, default=360, help="Requested camera height.")
+    parser.add_argument("--width", type=int, default=800, help="Requested camera width.")
+    parser.add_argument("--height", type=int, default=450, help="Requested camera height.")
     parser.add_argument("--fps", type=int, default=60, help="Requested camera FPS.")
     parser.add_argument("--smoothing", type=int, default=3, help="Number of recent points used for slow-motion smoothing.")
     parser.add_argument("--min-detection", type=float, default=0.6, help="MediaPipe detection confidence.")
     parser.add_argument("--min-tracking", type=float, default=0.6, help="MediaPipe tracking confidence.")
     parser.add_argument("--model-complexity", type=int, choices=(0, 1), default=0, help="MediaPipe model complexity. 0 is faster, 1 is more accurate.")
-    parser.add_argument("--process-scale", type=float, default=0.4, help="Hand-tracking frame scale. Lower is faster, higher is more accurate.")
+    parser.add_argument("--process-scale", type=float, default=0.45, help="Hand-tracking frame scale. Lower is faster, higher is more accurate.")
     parser.add_argument("--clear-hold", type=float, default=0.55, help="Seconds an open palm must be held before clearing.")
     parser.add_argument("--output-dir", type=Path, default=Path("captures"), help="Folder for saved PNG files.")
     parser.add_argument("--windowed", action="store_true", help="Start in a normal resizable window instead of fullscreen.")
