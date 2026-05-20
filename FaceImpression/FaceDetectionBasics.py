@@ -50,6 +50,8 @@ class AppConfig:
     smoothing_frames: int = SMOOTHING_FRAMES
     show_mesh: bool = True
     show_debug: bool = False
+    persist_seconds: float = 3.0
+    hide_hud: bool = False
 
 
 def parse_args():
@@ -73,6 +75,10 @@ def parse_args():
                         help="Show calculated face ratios.")
     parser.add_argument("--no-mesh", action="store_true",
                         help="Hide face contour mesh.")
+    parser.add_argument("--persist", type=float, default=3.0,
+                        help="seconds to persist last seen mood when face disappears (0 = infinite)")
+    parser.add_argument("--hide-hud", action="store_true",
+                        help="hide FPS and on-screen instructions")
     args = parser.parse_args()
 
     return AppConfig(
@@ -85,6 +91,8 @@ def parse_args():
         smoothing_frames=max(1, args.smoothing),
         show_debug=args.debug,
         show_mesh=not args.no_mesh,
+        persist_seconds=max(0.0, args.persist),
+        hide_hud=bool(args.hide_hud),
     )
 
 
@@ -316,7 +324,7 @@ def main():
         thickness=1, circle_radius=1, color=(80, 255, 80))
     previous_time = time.time()
     smoothed_fps = 0
-    face_histories = {}
+    face_states = {}
     fullscreen = False
     show_mesh = config.show_mesh
     show_debug = config.show_debug
@@ -341,7 +349,8 @@ def main():
                 results = face_mesh.process(rgb_frame)
                 rgb_frame.flags.writeable = True
 
-                next_face_histories = {}
+                # next states for faces detected this frame
+                next_face_states = {}
                 first_debug_values = None
 
                 if results.multi_face_landmarks:
@@ -352,17 +361,32 @@ def main():
                             face_landmarks, width, height)
                         face_box = get_face_box(face_landmarks, width, height)
                         face_center = get_face_center(face_box)
-                        _, mood_history = get_history_for_face(
-                            face_histories,
-                            face_center,
-                            max_tracking_distance,
-                            config.smoothing_frames,
-                        )
-                        mood_history.append(detected_mood)
-                        mood = most_common_mood(mood_history, detected_mood)
-                        next_face_histories[face_center] = mood_history
 
-                        color = MOOD_COLORS[mood]
+                        # find best matching previous center
+                        best_key = None
+                        best_dist = max_tracking_distance
+                        for key in list(face_states.keys()):
+                            d = distance(face_center, key)
+                            if d < best_dist:
+                                best_dist = d
+                                best_key = key
+
+                        if best_key is not None:
+                            history = face_states.pop(best_key)['history']
+                        else:
+                            history = deque(maxlen=config.smoothing_frames)
+
+                        history.append(detected_mood)
+                        mood = most_common_mood(history, detected_mood)
+
+                        next_face_states[face_center] = {
+                            'history': history,
+                            'last_seen': time.time(),
+                            'bbox': face_box,
+                            'mood': mood,
+                        }
+
+                        color = MOOD_COLORS.get(mood, (200, 200, 200))
                         x, y, w, h = face_box
                         cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
                         draw_label(frame, f"Mood: {mood}", x, y - 8, color)
@@ -380,7 +404,27 @@ def main():
                                 connection_drawing_spec=drawing_spec,
                             )
 
-                face_histories = next_face_histories
+                # keep previous faces for persistence if within timeout
+                current_ts = time.time()
+                for key, state in list(face_states.items()):
+                    last_seen = state.get('last_seen', 0)
+                    bbox = state.get('bbox')
+                    history = state.get('history', deque(
+                        maxlen=config.smoothing_frames))
+                    # persist indefinitely if persist_seconds == 0
+                    if config.persist_seconds == 0 or (current_ts - last_seen) <= config.persist_seconds:
+                        # re-add to next state (keep same key)
+                        next_face_states[key] = state
+                        # draw persisted label
+                        if bbox:
+                            mood = most_common_mood(
+                                history, history[-1] if history else 'Neutral')
+                            color = MOOD_COLORS.get(mood, (200, 200, 200))
+                            x, y, w, h = bbox
+                            draw_label(frame, f"Mood: {mood}", x, y - 8, color)
+                            draw_face_impression(frame, x, y, mood, color)
+
+                face_states = next_face_states
 
                 current_time = time.time()
                 instant_fps = 1 / \
@@ -389,14 +433,15 @@ def main():
                     smoothed_fps * 0.9) + (instant_fps * 0.1)
                 previous_time = current_time
 
-                draw_panel(
-                    frame,
-                    [
-                        f"FPS: {smoothed_fps:.0f}",
-                        f"Faces: {len(face_histories)}",
-                        "Q/ESC quit | F fullscreen | M mesh | D debug",
-                    ],
-                )
+                if not config.hide_hud:
+                    draw_panel(
+                        frame,
+                        [
+                            f"FPS: {smoothed_fps:.0f}",
+                            f"Faces: {len(face_states)}",
+                            "Q/ESC quit | F fullscreen | M mesh | D debug",
+                        ],
+                    )
 
                 if show_debug and first_debug_values:
                     draw_debug_values(frame, first_debug_values)
