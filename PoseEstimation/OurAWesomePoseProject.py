@@ -1,6 +1,6 @@
 import cv2
 import time
-import PoseModule as mp 
+import PoseEstimation.PoseModule as mp 
 
 cap = cv2.VideoCapture('PoseVideos/9.mp4')
 pTime = 0
